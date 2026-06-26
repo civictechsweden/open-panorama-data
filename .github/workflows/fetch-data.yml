@@ -1,0 +1,33 @@
+name: Fetch the data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * *"
+
+jobs:
+  scrape:
+    name: Fetch the data
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Fetch the data
+        run: uv run run.py
+
+      - name: Commit and push
+        run: |
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config --global user.name 'github-actions[bot]'
+          git add .
+          git commit -m 'Update the data' || echo "Nothing to commit"
+          git push
