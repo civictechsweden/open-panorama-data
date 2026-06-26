@@ -47,7 +47,7 @@ def build_output_stem(input_path: Path, output_stem: str | None) -> Path:
 
 
 def convert_snapshot(input_path: Path, output_stem: Path) -> Path:
-    with input_path.open() as json_data:
+    with input_path.open(encoding="utf-8") as json_data:
         data = json.load(json_data)
 
     board_data = data["content"]["boardData"]["board"]["data"]
@@ -100,7 +100,7 @@ def convert_snapshot(input_path: Path, output_stem: Path) -> Path:
 
     csv_path = output_stem.with_suffix(".csv")
     csv_path.parent.mkdir(parents=True, exist_ok=True)
-    actions_df.to_csv(csv_path, index=False)
+    actions_df.to_csv(csv_path, index=False, encoding="utf-8")
     return csv_path
 
 

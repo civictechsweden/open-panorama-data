@@ -10,6 +10,11 @@ from urllib.request import Request, urlopen
 DEFAULT_SITE_URL = "https://panorama-sverige.se/"
 DEFAULT_API_BASE_URL = "https://api.climateview.net/"
 USER_AGENT = "panorama-downloader/1.0"
+EMBEDDED_ESCAPE_REPLACEMENTS = {
+    "\\u003c": "<",
+    "\\u003e": ">",
+    "\\u0026": "&",
+}
 
 
 @dataclass
@@ -74,11 +79,29 @@ def choose_output_path(output: str | None, published_board: PublishedBoard) -> P
     return Path("data/panorama.json")
 
 
+def normalize_embedded_escapes(value):
+    if isinstance(value, dict):
+        return {key: normalize_embedded_escapes(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [normalize_embedded_escapes(item) for item in value]
+    if isinstance(value, str):
+        normalized = value
+        for escaped, unescaped in EMBEDDED_ESCAPE_REPLACEMENTS.items():
+            normalized = normalized.replace(escaped, unescaped)
+        return normalized
+    return value
+
+
 def download_file(url: str, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     request = Request(url, headers={"User-Agent": USER_AGENT})
     with urlopen(request) as response:
-        destination.write_bytes(response.read())
+        payload = response.read().decode("utf-8-sig")
+        normalized_json = normalize_embedded_escapes(json.loads(payload))
+        destination.write_text(
+            json.dumps(normalized_json, ensure_ascii=False, separators=(",", ":")),
+            encoding="utf-8",
+        )
 
 
 def parse_args() -> argparse.Namespace:
