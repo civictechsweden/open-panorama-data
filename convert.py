@@ -50,7 +50,7 @@ def convert_snapshot(input_path: Path, output_stem: Path) -> Path:
     with input_path.open(encoding="utf-8") as json_data:
         data = json.load(json_data)
 
-    board_data = data["content"]["boardData"]["board"]["data"]
+    board_data = data["CORE"]
 
     def get_type(type_id):
         if not type_id:
@@ -85,7 +85,7 @@ def convert_snapshot(input_path: Path, output_stem: Path) -> Path:
         ]
         return matches[0] if matches else status_id
 
-    actions = data["content"]["entityData"]["actions"]
+    actions = data["INTERVENTIONS"]
     actions_df = pd.json_normalize(actions.values())
 
     actions_df["actionProperties.type"] = actions_df["actionProperties.type"].apply(

@@ -3,9 +3,9 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
-
 
 DEFAULT_SITE_URL = "https://panorama-sverige.se/"
 DEFAULT_API_BASE_URL = "https://api.climateview.net/"
@@ -22,17 +22,17 @@ class PublishedBoard:
     board_id: str
     version_id: str
     version: str
-    blob_url: str
+    module_urls: dict[str, str]
     updated_at: str | None
 
 
 def fetch_text(url: str) -> str:
     request = Request(url, headers={"User-Agent": USER_AGENT})
     with urlopen(request) as response:
-        return response.read().decode("utf-8")
+        return response.read().decode("utf-8-sig")
 
 
-def fetch_json(url: str) -> dict:
+def fetch_json(url: str) -> Any:
     return json.loads(fetch_text(url))
 
 
@@ -57,18 +57,25 @@ def discover_api_base_url(site_url: str) -> str:
 def load_published_board(site_url: str, board_id: str | None = None) -> PublishedBoard:
     resolved_board_id = board_id or discover_board_id(site_url)
     api_base_url = discover_api_base_url(site_url)
-    metadata_url = api_base_url.rstrip("/") + f"/published-boards/v2/{resolved_board_id}"
+    metadata_url = (
+        api_base_url.rstrip("/") + f"/published-boards/v2/{resolved_board_id}"
+    )
     metadata = fetch_json(metadata_url)
 
-    blob_url = metadata.get("content", {}).get("oldBlobUrl") or metadata.get("blobUrl")
-    if not blob_url:
-        raise RuntimeError(f"Missing blob URL in published board metadata from {metadata_url}")
+    module_urls = {
+        module["type"]: module.get("blobUrl")
+        for module in metadata.get("content", {}).get("modules", [])
+    }
+    if not module_urls or not all(module_urls.values()):
+        raise RuntimeError(
+            f"Missing module URLs in published board metadata from {metadata_url}"
+        )
 
     return PublishedBoard(
         board_id=resolved_board_id,
         version_id=metadata["id"],
         version=metadata["version"],
-        blob_url=blob_url,
+        module_urls=module_urls,
         updated_at=metadata.get("updatedAt"),
     )
 
@@ -92,16 +99,17 @@ def normalize_embedded_escapes(value):
     return value
 
 
-def download_file(url: str, destination: Path) -> None:
+def download_board(published_board: PublishedBoard, destination: Path) -> None:
+    modules = {
+        module_type: fetch_json(url)
+        for module_type, url in published_board.module_urls.items()
+    }
+    normalized_json = normalize_embedded_escapes(modules)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    request = Request(url, headers={"User-Agent": USER_AGENT})
-    with urlopen(request) as response:
-        payload = response.read().decode("utf-8-sig")
-        normalized_json = normalize_embedded_escapes(json.loads(payload))
-        destination.write_text(
-            json.dumps(normalized_json, ensure_ascii=False, separators=(",", ":")),
-            encoding="utf-8",
-        )
+    destination.write_text(
+        json.dumps(normalized_json, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -128,12 +136,12 @@ def main() -> int:
     args = parse_args()
     published_board = load_published_board(args.site_url, args.board_id)
     output_path = choose_output_path(args.output, published_board)
-    download_file(published_board.blob_url, output_path)
+    download_board(published_board, output_path)
 
     print(f"Board ID:    {published_board.board_id}")
     print(f"Version:     {published_board.version}")
     print(f"Version ID:  {published_board.version_id}")
-    print(f"Blob URL:    {published_board.blob_url}")
+    print(f"Modules:     {', '.join(published_board.module_urls)}")
     print(f"Saved JSON:  {output_path}")
     return 0
 
