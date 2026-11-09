@@ -9,6 +9,12 @@ This dashboard contains very important information about Sweden's emissions and 
 
 The data is updated every Monday at 01:00 AM UTC.
 
+The JSON snapshot contains all modules from the current published board, keyed by
+module type (such as `CORE`, `INTERVENTIONS`, and `TRANSITIONS`). The CSV exports
+the actions in `INTERVENTIONS`, using `CORE` to resolve type, status, and tag labels.
+Snapshots from the previous single-blob format must be downloaded again before
+conversion.
+
 ## Instructions
 
 1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
@@ -29,3 +35,5 @@ The data is updated every Monday at 01:00 AM UTC.
    ```shell
    uv run run.py
    ```
+
+Run the downloader and CSV export tests with `uv run -m unittest -v`.

@@ -1,11 +1,11 @@
-from download_data import choose_output_path, download_file, load_published_board
 from convert import build_output_stem, convert_snapshot
+from download_data import choose_output_path, download_board, load_published_board
 
 
 def main() -> int:
     published_board = load_published_board("https://panorama-sverige.se/")
     output_path = choose_output_path(None, published_board)
-    download_file(published_board.blob_url, output_path)
+    download_board(published_board, output_path)
 
     output_stem = build_output_stem(output_path, None)
     csv_path = convert_snapshot(output_path, output_stem)
